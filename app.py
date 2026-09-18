@@ -21,7 +21,7 @@ if "Image" in input_mode:
     uploaded_file = st.sidebar.file_uploader("ऑप्शन चेनचा स्क्रीनशॉट अपलोड करा", type=["png", "jpg", "jpeg"])
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="अपलोड केलेली ऑप्शन चेन इमेज", use_container_width
+        st.image(image, caption="अपलोड केलेली ऑप्शन चेन इमेज", use_container_width=True
 else:
     manual_data = st.sidebar.text_area("येथे ऑप्शन चेनचा डेटा किंवा आकडे मॅन्युअली पेस्ट करा:")
 
