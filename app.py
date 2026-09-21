@@ -1,30 +1,31 @@
 import streamlit as st
 from PIL import Image
 from google import genai
-import datetime
-import uuid
 import urllib.parse
 import time
 
-# ॲप कॉन्फिगरेशन
-st.set_page_config(page_title="Naksh Pro 2.0 - Advanced Analyzer", page_icon="🎯", layout="wide")
+# =========================================================
+# NAKSH PRO 3.0
+# =========================================================
 
-st.markdown("""
-    <style>
-    html, body, [class*="css"] {
-        font-size: 14px;
-    }
-    .metric-box {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 8px;
-        border-left: 5px solid #ff4b4b;
-    }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(
+    page_title="Naksh Pro 3.0",
+    page_icon="🎯",
+    layout="wide"
+)
 
-st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence")
+# -------------------------
+# BASIC UI
+# -------------------------
+
+st.title("🎯 Naksh Pro 3.0")
+st.caption("ELIP PRO • Dynamic Scoring • Confirmation Matrix • What Changed")
+
 st.markdown("---")
+
+# -------------------------
+# SESSION STATE
+# -------------------------
 
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
@@ -32,118 +33,477 @@ if "api_key" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-st.sidebar.header("⚙️ ॲप सेटिंग्ज आणि इनपुट")
+# -------------------------
+# SIDEBAR
+# -------------------------
 
-entered_api_key = st.sidebar.text_input("Google Gemini API Key टाका:", value=st.session_state.api_key, type="password")
-if entered_api_key:
-    st.session_state.api_key = entered_api_key
+st.sidebar.header("⚙️ Naksh Pro Settings")
 
-analysis_mode = st.sidebar.selectbox("विश्लेषण मोड (Mode) निवडा:", [
-    "🚀 ELIP PRO 2.0 (Single/Multiple Image Analysis)", 
-    "🔄 What Changed? (१५ मिनिटांतील तुलनात्मक बदल)"
-])
+api_key = st.sidebar.text_input(
+    "Gemini API Key",
+    value=st.session_state.api_key,
+    type="password"
+)
+
+if api_key:
+    st.session_state.api_key = api_key
+
+mode = st.sidebar.radio(
+    "Analysis Mode",
+    [
+        "🚀 ELIP PRO Analysis",
+        "🔄 What Changed?"
+    ]
+)
+
+# -------------------------
+# IMAGE UPLOAD
+# -------------------------
 
 images = []
-prev_image = None
-curr_image = None
 
-if "ELIP PRO 2.0" in analysis_mode:
-    uploaded_files = st.sidebar.file_uploader("ऑप्शन चेन आणि प्राईस ॲक्शन चार्ट अपलोड करा", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-    if uploaded_files:
-        for f in uploaded_files:
-            img = Image.open(f)
+if mode == "🚀 ELIP PRO Analysis":
+
+    files = st.sidebar.file_uploader(
+        "Price Action / Option Chain Screenshots",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True
+    )
+
+    if files:
+        for file in files:
+            img = Image.open(file)
             images.append(img)
-            st.sidebar.image(img, caption=f"फाइल: {f.name}", use_container_width=True)
+
+            st.sidebar.image(
+                img,
+                caption=file.name,
+                use_container_width=True
+            )
+
 else:
-    st.sidebar.markdown("### 🔄 १५ मिनिटांमधील बदल तपासा")
-    p_file = st.sidebar.file_uploader("१) जुना स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="p_img")
-    c_file = st.sidebar.file_uploader("२) नवीन स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="c_img")
-    
-    if p_file and c_file:
-        prev_image = Image.open(p_file)
-        curr_image = Image.open(c_file)
-        st.sidebar.image(prev_image, caption="जुना स्क्रीनशॉट", use_container_width=True)
-        st.sidebar.image(curr_image, caption="नवीन स्क्रीनशॉट", use_container_width=True)
 
-if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू करा"):
-    if not st.session_state.api_key:
-        st.error("कृपया ॲपच्या साईडबारमध्ये तुमची Gemini API Key प्रविष्ट करा!")
-    else:
+    old_file = st.sidebar.file_uploader(
+        "1️⃣ जुना Screenshot",
+        type=["png", "jpg", "jpeg"]
+    )
+
+    new_file = st.sidebar.file_uploader(
+        "2️⃣ नवीन Screenshot",
+        type=["png", "jpg", "jpeg"]
+    )
+
+    if old_file and new_file:
+
+        old_img = Image.open(old_file)
+        new_img = Image.open(new_file)
+
+        images = [old_img, new_img]
+
+        st.sidebar.image(
+            old_img,
+            caption="जुना Screenshot",
+            use_container_width=True
+        )
+
+        st.sidebar.image(
+            new_img,
+            caption="नवीन Screenshot",
+            use_container_width=True
+        )
+
+# -------------------------
+# PROMPTS
+# -------------------------
+
+ELIP_PROMPT = """
+तुम्ही Naksh Pro 3.0 Market Intelligence Analyzer आहात.
+
+दिलेल्या Price Action Chart आणि Option Chain screenshot चे
+structured analysis करा.
+
+महत्त्वाचे:
+- screenshot मध्ये दिसणाऱ्या डेटावरच analysis करा.
+- डेटा स्पष्ट दिसत नसल्यास "डेटा उपलब्ध नाही" असे सांगा.
+- अंदाजाला निश्चित भविष्यवाणी म्हणून मांडू नका.
+- Risk management स्पष्ट ठेवा.
+
+=============================
+1. MARKET STRUCTURE
+=============================
+
+• Current Market Level
+• Trend: Bullish / Bearish / Sideways
+• Price Action Structure
+• Breakout / Breakdown / Range
+
+=============================
+2. DYNAMIC SUPPORT
+=============================
+
+S1:
+S2:
+S3:
+
+प्रत्येकासाठी:
+• OI
+• Change in OI
+• Volume
+• Price Action
+• Strength Score /10
+
+=============================
+3. RESISTANCE
+=============================
+
+R1:
+R2:
+R3:
+
+प्रत्येकासाठी:
+• OI
+• Change in OI
+• Volume
+• Price Action
+• Strength Score /10
+
+=============================
+4. OPTION CHAIN
+=============================
+
+• PCR
+• PCR Change
+• Max Pain
+• Strongest PE support
+• Strongest CE resistance
+• Important OI concentration
+
+=============================
+5. CONFIRMATION MATRIX
+=============================
+
+Create this table:
+
+| Factor | Signal | Score |
+|---|---|---|
+| Price Action | | /10 |
+| PE OI | | /10 |
+| CE OI | | /10 |
+| PCR | | /10 |
+| Volume | | /10 |
+
+TOTAL SCORE: /50
+
+Interpretation:
+
+40-50 = Strong confirmation
+30-39 = Moderate confirmation
+20-29 = Weak / Wait
+Below 20 = No clear setup
+
+=============================
+6. NO TRADE FILTER
+=============================
+
+जर signals conflicting असतील किंवा market range च्या मध्यभागी
+असेल तर:
+
+🟡 NO CLEAR SETUP — WAIT
+
+स्पष्ट confirmation नसताना setup force करू नका.
+
+=============================
+7. ELIP PRO SETUP
+=============================
+
+संभाव्य setup असल्यास:
+
+Direction:
+Entry Zone:
+Confirmation:
+Invalidation / SL:
+Target 1:
+Target 2:
+Trail SL:
+
+जर setup स्पष्ट नसेल तर:
+"NO TRADE"
+
+=============================
+8. WHAT CAN CHANGE THE VIEW
+=============================
+
+• कोणता level break झाला तर bullish view बदलू शकतो?
+• कोणता level break झाला तर bearish view बदलू शकतो?
+• कोणत्या OI change कडे लक्ष द्यावे?
+
+=============================
+9. SHORT WHATSAPP REPORT
+=============================
+
+Naksh Pro 3.0
+
+Market:
+Trend:
+Key Support:
+Key Resistance:
+PCR:
+Max Pain:
+Score:
+Setup:
+Entry:
+SL:
+T1:
+T2:
+Status:
+
+हा भाग short आणि WhatsApp-friendly ठेवा.
+"""
+
+CHANGE_PROMPT = """
+तुम्हाला दोन screenshots दिले आहेत.
+
+पहिला = जुना
+दुसरा = नवीन
+
+Naksh Pro 3.0 What Changed Analysis करा.
+
+फक्त दिसणाऱ्या डेटावर आधारित comparison करा.
+
+=============================
+1. PRICE ACTION CHANGE
+=============================
+
+जुन्या screenshot मधील level:
+नवीन screenshot मधील level:
+
+Trend मध्ये काय बदलला?
+
+=============================
+2. CALL OI CHANGE
+=============================
+
+CE OI:
+जुना →
+नवीन →
+
+Change:
+
+=============================
+3. PUT OI CHANGE
+=============================
+
+PE OI:
+जुना →
+नवीन →
+
+Change:
+
+=============================
+4. PCR CHANGE
+=============================
+
+Old PCR:
+New PCR:
+Change:
+
+=============================
+5. SUPPORT / RESISTANCE
+=============================
+
+Support:
+• मजबूत / कमकुवत / नवीन
+
+Resistance:
+• मजबूत / कमकुवत / नवीन
+
+=============================
+6. VOLUME / PRICE ACTION
+=============================
+
+काही significant change असल्यास सांगा.
+
+=============================
+7. CONFIRMATION
+=============================
+
+Bullish confirmations:
+Bearish confirmations:
+Conflicting signals:
+
+=============================
+8. CURRENT STATUS
+=============================
+
+🟢 Bullish Confirmation
+🔴 Bearish Confirmation
+🟡 No Clear Setup
+
+यापैकी योग्य status निवडा.
+
+=============================
+9. WHAT TO WATCH NEXT
+=============================
+
+महत्त्वाचे levels आणि OI changes सांगा.
+
+=============================
+10. SHORT WHATSAPP SUMMARY
+=============================
+
+Old → New:
+
+CE OI:
+PE OI:
+PCR:
+Support:
+Resistance:
+Trend:
+Status:
+"""
+
+# -------------------------
+# ANALYSIS FUNCTION
+# -------------------------
+
+def run_analysis(client, images, prompt):
+
+    contents = images + [prompt]
+
+    for attempt in range(3):
+
         try:
-            client = genai.Client(api_key=st.session_state.api_key)
-            
-            with st.spinner("Naksh Pro 2.0 सिस्टीम सखोल विश्लेषण करत आहे... कृपया प्रतीक्षा करा."):
-                
-                if "ELIP PRO 2.0" in analysis_mode:
-                    prompt = """
-                    हा शेअर मार्केटच्या Option Chain आणि Price Action Chart चा डेटा/स्क्रीनशॉट आहे. Naksh Pro 2.0 सिस्टीमच्या आधारे खालील मुद्द्यांवर मराठीत अचूक आणि सविस्तर विश्लेषण द्या:
-                    1. 🟢 **Dynamic Support Levels:** S1, S2, S3 (OI + Change in OI + Volume + Price Action च्या आधारावर स्कोर्ससह).
-                    2. 🔴 **Resistance Levels:** R1, R2, R3 (OI + Price Action च्या आधारावर स्कोर्ससह).
-                    3. 🧮 **PCR & Max Pain:** सध्याचा PCR, PCR Change आणि Max Pain लेव्हल.
-                    4. 📊 **Confirmation Matrix Table:** Price Action, PE OI, CE OI, PCR आणि Volume चा सिग्नल तपासून अंतिम स्कोर सांगा.
-                    5. 🚦 **No Trade Filter:** मार्केट मधोमध असेल तर "🟡 NO CLEAR SETUP / WAIT" स्पष्टपणे सांगा.
-                    6. 🎯 **ELIP PRO 2.0 Trade Planning Box:** (Entry, Key Level, Invalidation/SL, Targets).
-                    7. 📤 **WhatsApp Summary Report:** व्हॉट्सॲपवर शेअर करता येईल असा शॉर्ट आणि पॉवरफुल रिपोर्ट.
-                    """
-                    if images:
-                        contents_list = images + [prompt]
-                    else:
-                        st.warning("कृपया कमीत कमी एक स्क्रीनशॉट अपलोड करा!")
-                        st.stop()
+
+            response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=contents
+            )
+
+            return response.text
+
+        except Exception as error:
+
+            if "503" in str(error) and attempt < 2:
+                time.sleep(3)
+            else:
+                raise error
+
+# -------------------------
+# ANALYSIS BUTTON
+# -------------------------
+
+if st.sidebar.button(
+    "🚀 Naksh Pro Analysis सुरू करा",
+    use_container_width=True
+):
+
+    if not st.session_state.api_key:
+
+        st.error("कृपया Gemini API Key टाका.")
+
+    elif not images:
+
+        st.warning("कृपया आवश्यक screenshot upload करा.")
+
+    else:
+
+        try:
+
+            client = genai.Client(
+                api_key=st.session_state.api_key
+            )
+
+            with st.spinner(
+                "🎯 Naksh Pro 3.0 analysis करत आहे..."
+            ):
+
+                if mode == "🚀 ELIP PRO Analysis":
+                    report = run_analysis(
+                        client,
+                        images,
+                        ELIP_PROMPT
+                    )
                 else:
-                    prompt = """
-                    हे दोन वेगवेगळ्या वेळेचे स्क्रीनशॉट आहेत. यांची तुलना करून खालील मुद्द्यांवर मराठीत अचूक माहिती द्या:
-                    1. **काय बदलले? (What Changed?):** Call OI आणि Put OI मध्ये नेमकी काय वाढ किंवा घट झाली?
-                    2. **PCR मधील बदल:** जुना PCR विरुद्ध नवीन PCR.
-                    3. **मजबूत झालेली बाजू:** रेजिस्टेंस मजबूत झाला की सपोर्ट मजबूत झाला?
-                    4. **नवीन निष्कर्ष व ट्रेड कल:** ट्रेडर्सनी काय निर्णय घ्यावा?
-                    """
-                    contents_list = [prev_image, curr_image, prompt]
+                    report = run_analysis(
+                        client,
+                        images,
+                        CHANGE_PROMPT
+                    )
 
-                response = None
-                for attempt in range(3):
-                    try:
-                        response = client.models.generate_content(model='gemini-3.6-flash', contents=contents_list)
-                        break
-                    except Exception as err:
-                        if "503" in str(err) and attempt < 2:
-                            time.sleep(3)
-                            continue
-                        else:
-                            raise err
+            st.session_state.history.insert(
+                0,
+                {
+                    "time": time.strftime(
+                        "%d-%m-%Y %H:%M:%S"
+                    ),
+                    "text": report
+                }
+            )
 
-                report_id = str(uuid.uuid4())
-                current_time = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-                report_entry = {"id": report_id, "time": current_time, "text": response.text}
-                st.session_state.history.insert(0, report_entry)
-                
-                st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
-                
-        except Exception as e:
-            # एरर मेसेजमध्ये युनिकोड प्रॉब्लेम येऊ नये म्हणून इंग्रजीत ठेवला आहे
-            st.error(f"An error occurred: Please check your API Key or try again later. (Error details)")
+            st.success(
+                "✅ Naksh Pro Analysis पूर्ण झाले!"
+            )
+
+        except Exception as error:
+
+            st.error(
+                "Analysis failed. API Key, internet connection "
+                "किंवा Gemini model availability तपासा."
+            )
+
+# -------------------------
+# CURRENT REPORT
+# -------------------------
 
 if st.session_state.history:
+
     st.markdown("---")
-    st.markdown("### 📊 ॲनालिसिस रिपोर्ट्स (History & Live Dashboard):")
-    
-    for i, hist in enumerate(st.session_state.history):
-        st.markdown(f"**🕒 वेळ: {hist['time']}**")
-        st.markdown(hist['text'])
-        
-        encoded_report = urllib.parse.quote(hist['text'])
-        whatsapp_url = f"https://api.whatsapp.com/send?text={encoded_report}"
-        
-        st.markdown(f"""
-            <a href="{whatsapp_url}" target="_blank">
-                <button style="background-color:#25D366; color:white; padding:8px 15px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:5px;">
-                    📤 हा रिपोर्ट व्हॉट्सॲपवर शेअर करा
-                </button>
-            </a>
-        """, unsafe_allow_html=True)
-        
-        if st.button(f"🗑️ हा रिपोर्ट डिलीट करा (Report #{i+1})", key=f"del_{hist['id']}" ):
-            st.session_state.history.pop(i)
-            st.rerun()
-            
-        st.markdown("---")
+
+    st.subheader("📊 Naksh Pro Reports")
+
+    for index, report in enumerate(
+        st.session_state.history
+    ):
+
+        with st.expander(
+            f"🕒 {report['time']}",
+            expanded=(index == 0)
+        ):
+
+            st.markdown(report["text"])
+
+            # WhatsApp
+            whatsapp_text = urllib.parse.quote(
+                report["text"]
+            )
+
+            whatsapp_url = (
+                "https://api.whatsapp.com/send?text="
+                + whatsapp_text
+            )
+
+            st.markdown(
+                f"""
+                <a href="{whatsapp_url}" target="_blank">
+                    <button style="
+                        background:#25D366;
+                        color:white;
+                        border:none;
+                        padding:10px 18px;
+                        border-radius:7px;
+                        font-weight:bold;
+                    ">
+                    📤 WhatsApp वर Share करा
+                    </button>
+                </a>
+                """,
+                unsafe_allow_html=True
+            )
+
+            if st.button(
+                f"🗑️ Report Delete #{index + 1}",
+                key=f"delete_{index}"
+            ):
+
+                st.session_state.history.pop(index)
+                st.rerun()
