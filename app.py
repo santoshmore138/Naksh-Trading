@@ -120,7 +120,8 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            st.error(f"काहीतरी त्रुटी आली आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा. (त्रुटी: {e})")
+            # एरर मेसेजमध्ये युनिकोड प्रॉब्लेम येऊ नये म्हणून इंग्रजीत ठेवला आहे
+            st.error(f"An error occurred: Please check your API Key or try again later. (Error details)")
 
 if st.session_state.history:
     st.markdown("---")
