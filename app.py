@@ -101,15 +101,15 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     """
                     contents_list = [prev_image, curr_image, prompt]
 
-                # सर्व्हर लोड ट्रॅकरसह सुरक्षितपणे कॉल करणे (Retries)
+                # मॉडेल नाव gemini-3.6-flash सेट केले आहे
                 response = None
                 for attempt in range(3):
                     try:
-                        response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_list)
+                        response = client.models.generate_content(model='gemini-3.6-flash', contents=contents_list)
                         break
                     except Exception as err:
                         if "503" in str(err) and attempt < 2:
-                            time.sleep(3) # ३ सेकंद थांबून पुन्हा प्रयत्न करेल
+                            time.sleep(3)
                             continue
                         else:
                             raise err
@@ -122,7 +122,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            st.error(f"सर्व्हर व्यस्त असल्यामुळे एरर आला आहे. कृपया १० सेकंदांनंतर पुन्हा बटण दाबा. (त्रुटी: {e})")
+            st.error(f"काहीतरी त्रुटी आली आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा. (त्रुटी: {e})")
 
 if st.session_state.history:
     st.markdown("---")
