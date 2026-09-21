@@ -1,13 +1,5 @@
-import sys
-import io
-
-# सर्व्हरवर मराठी भाषा (Unicode) सुरळीत चालण्यासाठी UTF-8 एन्कोडिंग सेट करणे
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 import streamlit as st
 from PIL import Image
-import os
 from google import genai
 import datetime
 import uuid
