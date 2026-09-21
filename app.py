@@ -1,3 +1,10 @@
+import sys
+import io
+
+# सर्व्हरवर मराठी भाषा (Unicode) सुरळीत चालण्यासाठी UTF-8 एन्कोडिंग सेट करणे
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import streamlit as st
 from PIL import Image
 import os
@@ -101,7 +108,6 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     """
                     contents_list = [prev_image, curr_image, prompt]
 
-                # मॉडेल नाव gemini-3.6-flash सेट केले आहे
                 response = None
                 for attempt in range(3):
                     try:
