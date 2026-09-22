@@ -69,14 +69,13 @@ elif "What Changed?" in analysis_mode:
         st.sidebar.image(curr_image, caption="नवीन स्क्रीनशॉट", use_container_width=True)
 else:
     st.sidebar.markdown("### 📊 व्हिज्युअल चार्ट डॅशबोर्ड")
-    st.sidebar.info("येथे तुम्ही बाजारातील ओपन इंटरेस्टचे प्रत्यक्ष ग्राफ्स पाहू शकता.")
+    st.sidebar.info("येथे डॅशबोर्डवर थेट चार्ट दिसेल.")
 
-# मुख्य डॅशबोर्डवर चार्ट डॅशबोर्ड दाखवणे जर तो मोड निवडला असेल
+# मुख्य डॅशबोर्डवर चार्ट डॅशबोर्ड दाखवणे
 if "Live Market Visual Charts" in analysis_mode:
-    st.subheader("📊 स्ट्राइक-वाईस ओपन इंटरेस्ट (OI) डॅशबोर्ड डिमोंस्ट्रेशन")
+    st.subheader("📊 स्ट्राइक-वाईस ओपन इंटरेस्ट (OI) डॅशबोर्ड")
     st.markdown("खालील चार्टमध्ये कॉल (CE) आणि पुट (PE) ओपन इंटरेस्टचे प्रमाण दर्शवले आहे, ज्यामुळे सपोर्ट आणि रेजिस्टेंस लेव्हल स्पष्ट होतात.")
 
-    # डमी किंवा नमुना डेटा चार्टसाठी (Plotly)
     strikes = [24200, 24300, 24400, 24500, 24600, 24700, 24800]
     ce_oi = [150000, 300000, 600000, 1200000, 800000, 400000, 100000]
     pe_oi = [200000, 450000, 900000, 1400000, 600000, 250000, 50000]
@@ -122,9 +121,14 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     3. **मजबूत झालेली बाजू:** रेजिस्टेंस मजबूत झाला की सपोर्ट मजबूत झाला?
                     4. **नवीन निष्कर्ष व ट्रेड कल:** ट्रेडर्सनी काय निर्णय घ्यावा?
                     """
-                    contents_list = [prev_image, curr_image, prompt]
+                    if prev_image and curr_image:
+                        contents_list = [prev_image, curr_image, prompt]
+                    else:
+                        st.warning("कृपया दोन्ही स्क्रीनशॉट अपलोड करा!")
+                        st.stop()
                 else:
-                    contents_list = ["जनरल मार्केट व्ह्यू च्या आधारे आजच्या ट्रेडचे विश्लेषण मराठीत द्या."]
+                    prompt = "सध्याच्या मार्केट डॅशबोर्ड आणि ओपन इंटरेस्टच्या आधारावर आजच्या ट्रेडचे विश्लेषण मराठीत सविस्तर द्या."
+                    contents_list = [prompt]
 
                 response = None
                 for attempt in range(3):
@@ -146,7 +150,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            st.error(f"An error occurred: Please check your API Key or try again later.")
+            st.error(f"त्रुटी आली आहे: कृपया तुमची API Key किंवा अपलोड केलेले फाईल्स तपासा.")
 
 if st.session_state.history:
     st.markdown("---")
