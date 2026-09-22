@@ -5,9 +5,11 @@ import datetime
 import uuid
 import urllib.parse
 import time
+import plotly.graph_objects as go
+import pandas as pd
 
 # ॲप कॉन्फिगरेशन
-st.set_page_config(page_title="Naksh Pro 2.0 - Advanced Analyzer", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Naksh Pro 2.0 - Advanced Analyzer & Charts", page_icon="🎯", layout="wide")
 
 st.markdown("""
     <style>
@@ -23,7 +25,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence")
+st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence & Visuals")
 st.markdown("---")
 
 if "api_key" not in st.session_state:
@@ -40,7 +42,8 @@ if entered_api_key:
 
 analysis_mode = st.sidebar.selectbox("विश्लेषण मोड (Mode) निवडा:", [
     "🚀 ELIP PRO 2.0 (Single/Multiple Image Analysis)", 
-    "🔄 What Changed? (१५ मिनिटांतील तुलनात्मक बदल)"
+    "🔄 What Changed? (१५ मिनिटांतील तुलनात्मक बदल)",
+    "📊 Live Market Visual Charts (डेटा चार्ट डॅशबोर्ड)"
 ])
 
 images = []
@@ -54,7 +57,7 @@ if "ELIP PRO 2.0" in analysis_mode:
             img = Image.open(f)
             images.append(img)
             st.sidebar.image(img, caption=f"फाइल: {f.name}", use_container_width=True)
-else:
+elif "What Changed?" in analysis_mode:
     st.sidebar.markdown("### 🔄 १५ मिनिटांमधील बदल तपासा")
     p_file = st.sidebar.file_uploader("१) जुना स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="p_img")
     c_file = st.sidebar.file_uploader("२) नवीन स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="c_img")
@@ -64,6 +67,27 @@ else:
         curr_image = Image.open(c_file)
         st.sidebar.image(prev_image, caption="जुना स्क्रीनशॉट", use_container_width=True)
         st.sidebar.image(curr_image, caption="नवीन स्क्रीनशॉट", use_container_width=True)
+else:
+    st.sidebar.markdown("### 📊 व्हिज्युअल चार्ट डॅशबोर्ड")
+    st.sidebar.info("येथे तुम्ही बाजारातील ओपन इंटरेस्टचे प्रत्यक्ष ग्राफ्स पाहू शकता.")
+
+# मुख्य डॅशबोर्डवर चार्ट डॅशबोर्ड दाखवणे जर तो मोड निवडला असेल
+if "Live Market Visual Charts" in analysis_mode:
+    st.subheader("📊 स्ट्राइक-वाईस ओपन इंटरेस्ट (OI) डॅशबोर्ड डिमोंस्ट्रेशन")
+    st.markdown("खालील चार्टमध्ये कॉल (CE) आणि पुट (PE) ओपन इंटरेस्टचे प्रमाण दर्शवले आहे, ज्यामुळे सपोर्ट आणि रेजिस्टेंस लेव्हल स्पष्ट होतात.")
+
+    # डमी किंवा नमुना डेटा चार्टसाठी (Plotly)
+    strikes = [24200, 24300, 24400, 24500, 24600, 24700, 24800]
+    ce_oi = [150000, 300000, 600000, 1200000, 800000, 400000, 100000]
+    pe_oi = [200000, 450000, 900000, 1400000, 600000, 250000, 50000]
+
+    fig = go.Figure(data=[
+        go.Bar(name='Call OI (Resistance)', x=strikes, y=ce_oi, marker_color='red'),
+        go.Bar(name='Put OI (Support)', x=strikes, y=pe_oi, marker_color='green')
+    ])
+    
+    fig.update_layout(barmode='group', title='Strike wise Open Interest Distribution', xaxis_title='Strike Price', yaxis_title='Open Interest')
+    st.plotly_chart(fig, use_container_width=True)
 
 if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू करा"):
     if not st.session_state.api_key:
@@ -90,7 +114,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     else:
                         st.warning("कृपया कमीत कमी एक स्क्रीनशॉट अपलोड करा!")
                         st.stop()
-                else:
+                elif "What Changed?" in analysis_mode:
                     prompt = """
                     हे दोन वेगवेगळ्या वेळेचे स्क्रीनशॉट आहेत. यांची तुलना करून खालील मुद्द्यांवर मराठीत अचूक माहिती द्या:
                     1. **काय बदलले? (What Changed?):** Call OI आणि Put OI मध्ये नेमकी काय वाढ किंवा घट झाली?
@@ -99,6 +123,8 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     4. **नवीन निष्कर्ष व ट्रेड कल:** ट्रेडर्सनी काय निर्णय घ्यावा?
                     """
                     contents_list = [prev_image, curr_image, prompt]
+                else:
+                    contents_list = ["जनरल मार्केट व्ह्यू च्या आधारे आजच्या ट्रेडचे विश्लेषण मराठीत द्या."]
 
                 response = None
                 for attempt in range(3):
@@ -120,8 +146,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            # एरर मेसेजमध्ये युनिकोड प्रॉब्लेम येऊ नये म्हणून इंग्रजीत ठेवला आहे
-            st.error(f"An error occurred: Please check your API Key or try again later. (Error details)")
+            st.error(f"An error occurred: Please check your API Key or try again later.")
 
 if st.session_state.history:
     st.markdown("---")
