@@ -30,7 +30,7 @@ st.markdown("""
 st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence & Visuals")
 st.markdown("---")
 
-# हिस्टरी सेव्ह करण्यासाठी फाईलचा वापर (जेणेकरून डेटा डिलीट होणार नाही)
+# हिस्टरी सुरक्षित ठेवण्यासाठी फाईल
 HISTORY_FILE = "naksh_history.json"
 
 def load_history():
@@ -154,8 +154,8 @@ if st.sidebar.button("🚀 Naksh Pro 2.0 ॲनालिसिस सुरू �
                 response = None
                 for attempt in range(3):
                     try:
-                        # अत्यंत स्टेबल आणि लेटेस्ट मॉडेल नाव वापरले आहे
-                        response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_list)
+                        # अत्यंत स्टेबल लेटेस्ट मॉडेल
+                        response = client.models.generate_content(model='gemini-2.0-flash', contents=contents_list)
                         break
                     except Exception as err:
                         if "503" in str(err) and attempt < 2:
@@ -168,7 +168,6 @@ if st.sidebar.button("🚀 Naksh Pro 2.0 ॲनालिसिस सुरू �
                 current_time = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
                 report_entry = {"id": report_id, "time": current_time, "text": response.text}
                 
-                # नवीन रिपोर्ट हिस्टरीच्या सुरुवातीला जोडा
                 st.session_state.history.insert(0, report_entry)
                 save_history(st.session_state.history)
                 
