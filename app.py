@@ -36,9 +36,10 @@ if "history" not in st.session_state:
 
 st.sidebar.header("⚙️ ॲप सेटिंग्ज आणि इनपुट")
 
+# युजरने साईडबारमध्ये API Key टाकणे बंधनकारक आहे
 entered_api_key = st.sidebar.text_input("Google Gemini API Key टाका:", value=st.session_state.api_key, type="password")
 if entered_api_key:
-    st.session_state.api_key = entered_api_key
+    st.session_state.api_key = entered_api_key.strip()
 
 analysis_mode = st.sidebar.selectbox("विश्लेषण मोड (Mode) निवडा:", [
     "🚀 ELIP PRO 2.0 (Single/Multiple Image Analysis)", 
@@ -90,7 +91,7 @@ if "Live Market Visual Charts" in analysis_mode:
 
 if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू करा"):
     if not st.session_state.api_key:
-        st.error("कृपया ॲपच्या साईडबारमध्ये तुमची Gemini API Key प्रविष्ट करा!")
+        st.error("कृपया ॲपच्या डाव्या बाजूकडील साईडबारमध्ये तुमची Gemini API Key प्रविष्ट करा!")
     else:
         try:
             client = genai.Client(api_key=st.session_state.api_key)
@@ -133,7 +134,8 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 response = None
                 for attempt in range(3):
                     try:
-                        response = client.models.generate_content(model='gemini-3.6-flash', contents=contents_list)
+                        # स्टेबल मॉडेल नाव वापरले आहे
+                        response = client.models.generate_content(model='gemini-1.5-flash', contents=contents_list)
                         break
                     except Exception as err:
                         if "503" in str(err) and attempt < 2:
@@ -150,7 +152,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            st.error(f"त्रुटी आली आहे: कृपया तुमची API Key किंवा अपलोड केलेले फाईल्स तपासा.")
+            st.error(f"तांत्रिक त्रुटी आली आहे: {e}")
 
 if st.session_state.history:
     st.markdown("---")
