@@ -30,7 +30,7 @@ st.markdown("""
 st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence & Visuals")
 st.markdown("---")
 
-# हिस्टरी सुरक्षित ठेवण्यासाठी फाईल
+# जुनी हिस्ट्री सेव्ह राहण्यासाठी फाईल मॅनेजमेंट
 HISTORY_FILE = "naksh_history.json"
 
 def load_history():
@@ -154,8 +154,8 @@ if st.sidebar.button("🚀 Naksh Pro 2.0 ॲनालिसिस सुरू �
                 response = None
                 for attempt in range(3):
                     try:
-                        # अत्यंत स्टेबल लेटेस्ट मॉडेल
-                        response = client.models.generate_content(model='gemini-2.0-flash', contents=contents_list)
+                        # गुगलच्या सूचनेनुसार अचूक आणि नवीन 'gemini-3.6-flash' मॉडेल नाव सेट केले आहे
+                        response = client.models.generate_content(model='gemini-3.6-flash', contents=contents_list)
                         break
                     except Exception as err:
                         if "503" in str(err) and attempt < 2:
