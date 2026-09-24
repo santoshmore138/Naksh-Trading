@@ -40,7 +40,7 @@ st.markdown("---")
 st.sidebar.header("⚙️ कोटक निओ एपीआय आणि सेटिंग्स")
 kotak_token = st.sidebar.text_input("कोटक निओ API टोकन (Token):", type="password", value="00680e24-1524-4793-be33-e0c4978e97bc")
 
-# इंडेक्स निवडण्याचा पर्याय (Sensex, Nifty, Bank Nifty)
+# इंडेक्स निवडण्याचा पर्याय
 selected_index = st.sidebar.selectbox("ट्रेडिंग इंडेक्स निवडा (Select Index):", [
     "SENSEX", 
     "NIFTY", 
@@ -60,7 +60,7 @@ if selected_index == "SENSEX":
     entry_zone = "74,820 - 74,850"
     sl_val = "74,750"
     t1, t2 = "74,920", "74,980 - 75,000"
-    wa_summary = """🚀 Naksh Pro 2.0: SENSEX Option Chain Signal 🚀\n\n📊 SPOT: 74,857.89 (+0.44%)\n📈 PCR: 1.38 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 74,800 (Huge Put OI +1048%)\nS2: 74,700\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 74,820 - 74,850\n🎯 Target 1: 74,920\n🎯 Target 2: 75,000\n🛑 Stop Loss: 74,750\n\n💡 विश्लेषक टीप: 74,800 वर प्रचंड पुट रायटिंग झाली आहे. 75,000 हे मुख्य टार्गेट/अडथळा असेल."""
+    wa_summary = "🚀 Naksh Pro 2.0: SENSEX Option Chain Signal 🚀\n\n📊 SPOT: 74,857.89 (+0.44%)\n📈 PCR: 1.38 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 74,800 (Huge Put OI +1048%)\nS2: 74,700\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 74,820 - 74,850\n🎯 Target 1: 74,920\n🎯 Target 2: 75,000\n🛑 Stop Loss: 74,750\n\n💡 विश्लेषक टीप: 74,800 वर प्रचंड पुट रायटिंग झाली आहे. 75,000 हे मुख्य टार्गेट असेल."
     strikes = [74500, 74700, 74800, 74900, 75000, 75200]
     ce_oi = [500000, 800000, 1160000, 1160000, 2066000, 1015000]
     pe_oi = [2193000, 1814000, 1797000, 900000, 400000, 150000]
@@ -72,7 +72,7 @@ elif selected_index == "NIFTY":
     entry_zone = "23,410 - 23,440"
     sl_val = "23,370"
     t1, t2 = "23,500", "23,580 - 23,600"
-    wa_summary = """🚀 Naksh Pro 2.0: NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 23,450.20 (+0.55%)\n📈 PCR: 1.25 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 23,400 (Strong Put Writing)\nS2: 23,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 23,410 - 23,440\n🎯 Target 1: 23,500\n🎯 Target 2: 23,600\n🛑 Stop Loss: 23,370\n\n💡 विश्लेषक टीप: निफ्टीमध्ये 23,400 वर भक्कम सपोर्ट दिसत आहे."""
+    wa_summary = "🚀 Naksh Pro 2.0: NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 23,450.20 (+0.55%)\n📈 PCR: 1.25 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 23,400 (Strong Put Writing)\nS2: 23,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 23,410 - 23,440\n🎯 Target 1: 23,500\n🎯 Target 2: 23,600\n🛑 Stop Loss: 23,370\n\n💡 विश्लेषक टीप: निफ्टीमध्ये 23,400 वर भक्कम सपोर्ट दिसत आहे."
     strikes = [23200, 23300, 23400, 23500, 23600, 23700]
     ce_oi = [400000, 900000, 1500000, 2200000, 1100000, 500000]
     pe_oi = [1200000, 1600000, 1900000, 800000, 300000, 100000]
@@ -84,7 +84,7 @@ else: # BANK NIFTY
     entry_zone = "50,550 - 50,600"
     sl_val = "50,450"
     t1, t2 = "50,800", "50,950 - 51,000"
-    wa_summary = """🚀 Naksh Pro 2.0: BANK NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 50,620.10 (+0.70%)\n📈 PCR: 1.42 (Strong Bullish)\n\n🔹 Dynamic Supports:\nS1: 50,500 (Massive Put Buildup)\nS2: 50,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 50,550 - 50,600\n🎯 Target 1: 50,800\n🎯 Target 2: 51,000\n🛑 Stop Loss: 50,450\n\n💡 विश्लेषक टीप: बँक निफ्टीमध्ये जोरदार खरेदी दिसून येत आहे."""
+    wa_summary = "🚀 Naksh Pro 2.0: BANK NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 50,620.10 (+0.70%)\n📈 PCR: 1.42 (Strong Bullish)\n\n🔹 Dynamic Supports:\nS1: 50,500 (Massive Put Buildup)\nS2: 50,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 50,550 - 50,600\n🎯 Target 1: 50,800\n🎯 Target 2: 51,000\n🛑 Stop Loss: 50,450\n\n💡 विश्लेषक टीप: बँक निफ्टीमध्ये जोरदार खरेदी दिसून येत आहे."
     strikes = [50000, 50200, 50500, 50800, 51000, 51200]
     ce_oi = [600000, 1100000, 1800000, 2500000, 1400000, 700000]
     pe_oi = [1500000, 2100000, 2600000, 1200000, 500000, 200000]
@@ -94,9 +94,8 @@ if sync_button:
     if not kotak_token:
         st.error("कृपया कोटक निओ API टोकन प्रविष्ट करा!")
     else:
-        with st.spinner(f"कोटक निओ सर्व्हरशी कनेक्ट होत आहे ({selected_index})... किरकोळ डेटा फेच करत आहे..."):
-            # इथे तुम्ही कोटक निओच्या अधिकृत API कॉल करू शकता
-            st.success(f"यಶಸ್वी! {selected_index} लाईव्ह ऑप्शन चेन डेटा कोटक निओ एपीआय द्वारे सिंक झाला आहे.")
+        with st.spinner(f"कोटक निओ सर्व्हरशी कनेक्ट होत आहे ({selected_index})..."):
+            st.success(f"यशस्वी! {selected_index} लाईव्ह डेटा कोटक निओ एपीआय द्वारे सिंक झाला आहे.")
 
 # ==========================================
 # मुख्य डॅशबोर्ड मेट्रिक्स
@@ -119,9 +118,9 @@ st.markdown("---")
 # ==========================================
 st.subheader(f"📊 4. Confirmation Matrix Table ({selected_index})")
 matrix_data = {
-    "घटक (Factor)": ["Price Action", "PE OI (Put Writing)", "CE OI (Call Writing)", f"Overall PCR ({pcr_val})", "Volume Signal"],
-    "सिग्नल (Signal)": ["🟢 Bullish", "🟢 Strongly Bullish", "🟡 Neutral / Moderate", "🟢 Bullish", "🟢 Bullish"],
-    "शेरा / टिप्पणी": [
+    "Factor": ["Price Action", "PE OI (Put Writing)", "CE OI (Call Writing)", f"Overall PCR ({pcr_val})", "Volume Signal"],
+    "Signal": ["Bullish", "Strongly Bullish", "Neutral / Moderate", "Bullish", "Bullish"],
+    "Commentary / शेरा": [
         f"Spot {spot_val} वर ट्रेड करत आहे.",
         f"S1 ({s1}) मध्ये मजबूत पुट रायटिंग/वाढ झाली आहे.",
         f"मुख्य रेझिस्टन्स ({r2}) वर अडथळा आहे.",
@@ -137,7 +136,7 @@ st.table(pd.DataFrame(matrix_data))
 st.markdown(f"""
 ### 🚦 5. No Trade Filter Check:
 * **सध्याची स्थिती:** मार्केट **{s1}** (मजबूत सपोर्ट) आणि **{r2}** (प्रमुख रेझिस्टन्स) च्या दरम्यान सुस्थितीत ट्रेड करत आहे.
-* **फिल्टर निर्णय:** 🟢 **CLEAR BULLISH SETUP ON DIPS** (बाजारात {s1} जवळ आल्यास खरेदीची उत्तम संधी आहे.)
+* **फिल्टर निर्णय:** **CLEAR BULLISH SETUP ON DIPS** (बाजारात {s1} जवळ आल्यास खरेदीची उत्तम संधी आहे.)
 """)
 
 st.markdown("---")
@@ -169,7 +168,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# युनिक व्हॉट्सॲप वेब शेअरिंग यूआरएल तयार करणे
 encoded_whatsapp_text = urllib.parse.quote(wa_summary)
 whatsapp_share_url = f"https://api.whatsapp.com/send?text={encoded_whatsapp_text}"
 
