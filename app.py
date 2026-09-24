@@ -5,6 +5,8 @@ import datetime
 import uuid
 import urllib.parse
 import time
+import json
+import os
 import plotly.graph_objects as go
 import pandas as pd
 
@@ -22,27 +24,50 @@ st.markdown("""
         border-radius: 8px;
         border-left: 5px solid #ff4b4b;
     }
+    .stButton>button {
+        width: 100%;
+        border-radius: 6px;
+        font-weight: bold;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence & Visuals")
 st.markdown("---")
 
+# डेटा सुरक्षित ठेवण्यासाठी लोकल फाईल मॅनेजमेंट (डेटा डिलीट होणार नाही)
+HISTORY_FILE = "naksh_history.json"
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_history(history_data):
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history_data, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
 if "api_key" not in st.session_state:
     st.session_state.api_key = ""
 
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history = load_history()
 
 st.sidebar.header("⚙️ ॲप सेटिंग्ज आणि इनपुट")
 
-# युजरने साईडबारमध्ये API Key टाकणे बंधनकारक आहे
 entered_api_key = st.sidebar.text_input("Google Gemini API Key टाका:", value=st.session_state.api_key, type="password")
 if entered_api_key:
     st.session_state.api_key = entered_api_key.strip()
 
 analysis_mode = st.sidebar.selectbox("विश्लेषण मोड (Mode) निवडा:", [
-    "🚀 ELIP PRO 2.0 (Single/Multiple Image Analysis)", 
+    "🚀 Naksh Pro 2.0 (Single/Multiple Image Analysis)", 
     "🔄 What Changed? (१५ मिनिटांतील तुलनात्मक बदल)",
     "📊 Live Market Visual Charts (डेटा चार्ट डॅशबोर्ड)"
 ])
@@ -51,7 +76,7 @@ images = []
 prev_image = None
 curr_image = None
 
-if "ELIP PRO 2.0" in analysis_mode:
+if "Naksh Pro 2.0" in analysis_mode:
     uploaded_files = st.sidebar.file_uploader("ऑप्शन चेन आणि प्राईस ॲक्शन चार्ट अपलोड करा", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
     if uploaded_files:
         for f in uploaded_files:
@@ -70,7 +95,7 @@ elif "What Changed?" in analysis_mode:
         st.sidebar.image(curr_image, caption="नवीन स्क्रीनशॉट", use_container_width=True)
 else:
     st.sidebar.markdown("### 📊 व्हिज्युअल चार्ट डॅशबोर्ड")
-    st.sidebar.info("येथे डॅशबोर्डवर थेट चार्ट दिसेल.")
+    st.sidebar.info("येथे डॅशबोर्डवर थेट ओपन इंटरेस्टचे ग्राफ्स दिसतील.")
 
 # मुख्य डॅशबोर्डवर चार्ट डॅशबोर्ड दाखवणे
 if "Live Market Visual Charts" in analysis_mode:
@@ -89,7 +114,7 @@ if "Live Market Visual Charts" in analysis_mode:
     fig.update_layout(barmode='group', title='Strike wise Open Interest Distribution', xaxis_title='Strike Price', yaxis_title='Open Interest')
     st.plotly_chart(fig, use_container_width=True)
 
-if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू करा"):
+if st.sidebar.button("🚀 Naksh Pro 2.0 ॲनालिसिस सुरू करा"):
     if not st.session_state.api_key:
         st.error("कृपया ॲपच्या डाव्या बाजूकडील साईडबारमध्ये तुमची Gemini API Key प्रविष्ट करा!")
     else:
@@ -98,7 +123,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
             
             with st.spinner("Naksh Pro 2.0 सिस्टीम सखोल विश्लेषण करत आहे... कृपया प्रतीक्षा करा."):
                 
-                if "ELIP PRO 2.0" in analysis_mode:
+                if "Naksh Pro 2.0" in analysis_mode:
                     prompt = """
                     हा शेअर मार्केटच्या Option Chain आणि Price Action Chart चा डेटा/स्क्रीनशॉट आहे. Naksh Pro 2.0 सिस्टीमच्या आधारे खालील मुद्द्यांवर मराठीत अचूक आणि सविस्तर विश्लेषण द्या:
                     1. 🟢 **Dynamic Support Levels:** S1, S2, S3 (OI + Change in OI + Volume + Price Action च्या आधारावर स्कोर्ससह).
@@ -106,7 +131,7 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                     3. 🧮 **PCR & Max Pain:** सध्याचा PCR, PCR Change आणि Max Pain लेव्हल.
                     4. 📊 **Confirmation Matrix Table:** Price Action, PE OI, CE OI, PCR आणि Volume चा सिग्नल तपासून अंतिम स्कोर सांगा.
                     5. 🚦 **No Trade Filter:** मार्केट मधोमध असेल तर "🟡 NO CLEAR SETUP / WAIT" स्पष्टपणे सांगा.
-                    6. 🎯 **ELIP PRO 2.0 Trade Planning Box:** (Entry, Key Level, Invalidation/SL, Targets).
+                    6. 🎯 **Naksh Pro 2.0 Trade Planning Box:** (Entry, Key Level, Invalidation/SL, Targets).
                     7. 📤 **WhatsApp Summary Report:** व्हॉट्सॲपवर शेअर करता येईल असा शॉर्ट आणि पॉवरफुल रिपोर्ट.
                     """
                     if images:
@@ -134,8 +159,8 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 response = None
                 for attempt in range(3):
                     try:
-                        # स्टेबल मॉडेल नाव वापरले आहे
-                        response = client.models.generate_content(model='gemini-1.5-flash', contents=contents_list)
+                        # अत्यंत स्टेबल आणि नवीन 'gemini-2.5-flash' मॉडेल वापरले आहे
+                        response = client.models.generate_content(model='gemini-2.5-flash', contents=contents_list)
                         break
                     except Exception as err:
                         if "503" in str(err) and attempt < 2:
@@ -147,16 +172,24 @@ if st.sidebar.button("🚀 Naksh Pro ॲनालिसिस सुरू क�
                 report_id = str(uuid.uuid4())
                 current_time = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
                 report_entry = {"id": report_id, "time": current_time, "text": response.text}
+                
+                # हिस्टरीमध्ये नवीन रिपोर्ट सेव्ह करणे
                 st.session_state.history.insert(0, report_entry)
+                save_history(st.session_state.history)
                 
                 st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
                 
         except Exception as e:
-            st.error(f"तांत्रिक त्रुटी आली आहे: {e}")
+            error_str = str(e)
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                st.error("⚠️ **API कोटा संपला आहे (Quota Exceeded):** तुम्ही वापरत असलेल्या Gemini API Key ची फ्री मर्यादा संपली आहे. कृपया Google AI Studio वरून नवीन API Key तयार करून टाка.")
+            else:
+                st.error(f"तांत्रिक त्रुटी आली आहे: {error_str}")
 
+# सेव्ह केलेली हिस्ट्री दाखवणे
 if st.session_state.history:
     st.markdown("---")
-    st.markdown("### 📊 ॲनालिसिस रिपोर्ट्स (History & Live Dashboard):")
+    st.markdown("### 📊 जतन केलेले रिपोर्ट्स (Saved History & Dashboard):")
     
     for i, hist in enumerate(st.session_state.history):
         st.markdown(f"**🕒 वेळ: {hist['time']}**")
@@ -175,6 +208,7 @@ if st.session_state.history:
         
         if st.button(f"🗑️ हा रिपोर्ट डिलीट करा (Report #{i+1})", key=f"del_{hist['id']}" ):
             st.session_state.history.pop(i)
+            save_history(st.session_state.history)
             st.rerun()
             
         st.markdown("---")
