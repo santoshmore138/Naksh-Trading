@@ -1,15 +1,26 @@
-import streamlit as st
-import plotly.graph_objects as go
+import base64
+import io
+import json
+import re
+import urllib.parse
+from datetime import datetime
+
+import anthropic
+import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+from PIL import Image
 
-# ॲप कॉन्फिगरेशन आणि डार्क थीम लूक
-st.set_page_config(page_title="Naksh Pro 2.0 - Ultimate Analyzer", page_icon="🎯", layout="wide")
+# ---------------------------------------------------------------
+# अँप कॉन्फिगरेशन आणि डार्क थीम लूक
+# ---------------------------------------------------------------
+st.set_page_config(page_title="Naksh Pro 2.0", page_icon="📈", layout="wide")
 
-st.markdown("""
+st.markdown(
+    """
     <style>
-    html, body, [class*="css"] {
-        font-size: 14px;
-    }
+    html, body, [class*="css"] { font-size: 14px; }
     .trade-plan-box {
         background-color: #161b22;
         padding: 20px;
@@ -18,150 +29,415 @@ st.markdown("""
         margin-bottom: 20px;
         color: white;
     }
-    .whatsapp-box {
-        background-color: #0b141a;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #00D26A;
-        color: #e9edef;
-        font-family: monospace;
-    }
+    .sig-ce { border-color: #2ea043; }
+    .sig-pe { border-color: #f85149; }
+    .sig-wait { border-color: #d29922; }
+    .sig-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
     </style>
-""", unsafe_allow_html=True)
-
-st.title("🎯 Naksh Pro 2.0 — Complete Options & Market Analyzer")
-st.markdown("---")
-
-# साईडबार - एपीआय कॉन्फिगरेशन आणि इंडेक्स निवड
-st.sidebar.header("⚙️ कोटक निओ एपीआय आणि सेटिंग्स")
-kotak_token = st.sidebar.text_input("कोटक निओ API टोकन (Token) टाका:", type="password", value="00680e24-1524-4793-be33-e0c4978e97bc")
-
-# इंडेक्स निवडण्याचा पर्याय
-selected_index = st.sidebar.selectbox("ट्रेडिंग इंडेक्स निवडा (Select Index):", [
-    "SENSEX", 
-    "NIFTY", 
-    "BANK NIFTY"
-])
-
-# इंडेक्सनुसार डायनॅमिक डेटा व संपूर्ण विश्लेषण सेट करणे
-if selected_index == "SENSEX":
-    spot_val, spot_change = "74,857.89", "+0.44% (Bullish)"
-    pcr_val, max_pain, score_val = "1.38", "74,800", "+8.0 / 10"
-    s1, s2, r1, r2 = "74,800", "74,700", "74,900", "75,000"
-    entry_zone = "74,820 - 74,850"
-    sl_val = "74,750"
-    t1, t2 = "74,920", "74,980 - 75,000"
-    wa_summary = """🚀 Naksh Pro 2.0: SENSEX Option Chain Signal 🚀\n\n📊 SPOT: 74,857.89 (+0.44%)\n📈 PCR: 1.38 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 74,800 (Huge Put OI +1048%)\nS2: 74,700\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 74,820 - 74,850\n🎯 Target 1: 74,920\n🎯 Target 2: 75,000\n🛑 Stop Loss: 74,750\n\n💡 विश्लेषक टीप: 74,800 वर प्रचंड पुट रायटिंग झाली आहे. 75,000 हे मुख्य टार्गेट/अडथळा असेल."""
-    strikes = [74500, 74700, 74800, 74900, 75000, 75200]
-    ce_oi = [500000, 800000, 1160000, 1160000, 2066000, 1015000]
-    pe_oi = [2193000, 1814000, 1797000, 900000, 400000, 150000]
-
-elif selected_index == "NIFTY":
-    spot_val, spot_change = "23,450.20", "+0.55% (Bullish)"
-    pcr_val, max_pain, score_val = "1.25", "23,400", "+8.2 / 10"
-    s1, s2, r1, r2 = "23,400", "23,300", "23,500", "23,600"
-    entry_zone = "23,410 - 23,440"
-    sl_val = "23,370"
-    t1, t2 = "23,500", "23,580 - 23,600"
-    wa_summary = """🚀 Naksh Pro 2.0: NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 23,450.20 (+0.55%)\n📈 PCR: 1.25 (Bullish Bias)\n\n🔹 Dynamic Supports:\nS1: 23,400 (Strong Put Writing)\nS2: 23,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 23,410 - 23,440\n🎯 Target 1: 23,500\n🎯 Target 2: 23,600\n🛑 Stop Loss: 23,370\n\n💡 विश्लेषक टीप: निफ्टीमध्ये 23,400 वर भक्कम सपोर्ट दिसत आहे."""
-    strikes = [23200, 23300, 23400, 23500, 23600, 23700]
-    ce_oi = [400000, 900000, 1500000, 2200000, 1100000, 500000]
-    pe_oi = [1200000, 1600000, 1900000, 800000, 300000, 100000]
-
-else: # BANK NIFTY
-    spot_val, spot_change = "50,620.10", "+0.70% (Strong Bullish)"
-    pcr_val, max_pain, score_val = "1.42", "50,500", "+8.8 / 10"
-    s1, s2, r1, r2 = "50,500", "50,300", "50,800", "51,000"
-    entry_zone = "50,550 - 50,600"
-    sl_val = "50,450"
-    t1, t2 = "50,800", "50,950 - 51,000"
-    wa_summary = """🚀 Naksh Pro 2.0: BANK NIFTY Option Chain Signal 🚀\n\n📊 SPOT: 50,620.10 (+0.70%)\n📈 PCR: 1.42 (Strong Bullish)\n\n🔹 Dynamic Supports:\nS1: 50,500 (Massive Put Buildup)\nS2: 50,300\n\nपसंतीचा ट्रेड (Trade Setup): Buy on Dips\n🎯 Entry: 50,550 - 50,600\n🎯 Target 1: 50,800\n🎯 Target 2: 51,000\n🛑 Stop Loss: 50,450\n\n💡 विश्लेषक टीप: बँक निफ्टीमध्ये जोरदार खरेदी दिसून येत आहे."""
-    strikes = [50000, 50200, 50500, 50800, 51000, 51200]
-    ce_oi = [600000, 1100000, 1800000, 2500000, 1400000, 700000]
-    pe_oi = [1500000, 2100000, 2600000, 1200000, 500000, 200000]
-
-# मुख्य डॅशबोर्ड मेट्रिक्स
-st.markdown(f"### 📈 {selected_index} लाईव्ह मार्केट ओव्हरव्ह्यू आणि स्कोअरकार्ड")
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric(label=f"{selected_index} स्पॉट (Spot)", value=spot_val, delta=spot_change)
-with col2:
-    st.metric(label="ओव्हरऑल PCR", value=pcr_val, delta="Bullish Bias")
-with col3:
-    st.metric(label="मॅक्स पेन लेव्हल", value=max_pain, delta="Neutral")
-with col4:
-    st.metric(label="अंतिम संमिश्र स्कोअर", value=score_val, delta="Buy Setup")
-
-st.markdown("---")
-
-# १. कन्फर्मेशन मॅट्रिक्स टेबल (आता एकाच पेजवर दिसेल)
-st.subheader(f"📊 4. Confirmation Matrix Table ({selected_index})")
-matrix_data = {
-    "घटक (Factor)": ["Price Action", "PE OI (Put Writing)", "CE OI (Call Writing)", f"Overall PCR ({pcr_val})", "Volume Signal"],
-    "सिग्नल (Signal)": ["🟢 Bullish", "🟢 Strongly Bullish", "🟡 Neutral / Moderate", "🟢 Bullish", "🟢 Bullish"],
-    "शेरा / टिप्पणी": [
-        f"Spot {spot_val} वर ट्रेड करत आहे.",
-        f"S1 ({s1}) मध्ये मजबूत पुट रायटिंग/वाढ झाली आहे.",
-        f"मुख्य रेझिस्टन्स ({r2}) वर अडथळा आहे.",
-        "1.0 च्या वर असल्याने बाजारात तेजीचे वातावरण.",
-        "कॉल वॉल्यूम पेक्षा पुट रायटिंग मजबूत आहे."
-    ]
-}
-st.table(pd.DataFrame(matrix_data))
-
-# २. नो ट्रेड फिल्टर चेक
-st.markdown(f"""
-### 🚦 5. No Trade Filter Check:
-* **सध्याची स्थिती:** मार्केट **{s1}** (मजबूत सपोर्ट) आणि **{r2}** (प्रमुख रेझिस्टन्स) च्या दरम्यान सुस्थितीत ट्रेड करत आहे.
-* **फिल्टर निर्णय:** 🟢 **CLEAR BULLISH SETUP ON DIPS** (बाजारात {s1} जवळ आल्यास खरेदीची उत्तम संधी आहे.)
-""")
-
-st.markdown("---")
-
-# ३. ट्रेड प्लॅनिंग बॉक्स
-st.subheader(f"🎯 6. Naksh Pro 2.0 Trade Planning Box ({selected_index})")
-st.markdown(f"""
-<div class="trade-plan-box">
-    <h3>📈 ट्रेड दिशा: BUY ON DIPS (तेजीचा ट्रेड)</h3>
-    <ul>
-        <li><b>Entry Zone (एन्ट्री):</b> {entry_zone} (सपोर्ट जवळ पुलबॅक मिळाल्यास).</li>
-        <li><b>Key Trigger Level:</b> {s1} च्या वर टिकून राहणे आवश्यक.</li>
-        <li><b>Invalidation / Stop-loss (SL):</b> <b>{sl_val}</b> ({s1} च्या सपोर्टखाली क्लोजिंग दिल्यास ट्रेड रद्द).</li>
-        <li><b>Target 1:</b> <b>{t1}</b></li>
-        <li><b>Target 2:</b> <b>{t2}</b> (प्रमुख रेझिस्टन्स - येथे नफा बुक करावा).</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
-
-# ४. व्हॉट्सॲप रिपोर्ट बॉक्स
-st.subheader("📤 7. WhatsApp Summary Report")
-st.markdown(f"""
-<div class="whatsapp-box">
-    <pre>{wa_summary}</pre>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("---")
-
-# ५. स्ट्राइक वाईस ओपन इंटरेस्ट (OI) चार्ट
-st.subheader(f"📊 {selected_index} स्ट्राइक-वाईस ओपन इंटरेस्ट (OI) चार्ट")
-fig = go.Figure(data=[
-    go.Bar(name='Call OI (Resistance)', x=strikes, y=ce_oi, marker_color='#ff4b4b'),
-    go.Bar(name='Put OI (Support)', x=strikes, y=pe_oi, marker_color='#00D26A')
-])
-fig.update_layout(
-    barmode='group', 
-    title=f'Strike wise Open Interest Distribution ({selected_index})', 
-    xaxis_title='Strike Price', 
-    yaxis_title='Open Interest',
-    template='plotly_dark'
+    """,
+    unsafe_allow_html=True,
 )
-st.plotly_chart(fig, use_container_width=True)
 
-# कोटक निओ डेटा कनेक्शन स्टेटस
-if st.sidebar.button("🔄 कोटक निओ लाईव्ह डेटा सिंक करा"):
-    if not kotak_token:
-        st.error("कृपया कोटक निओ API टोकन प्रविष्ट करा!")
+COLS = ["strike", "ce_oi", "ce_oi_chg", "pe_oi", "pe_oi_chg"]
+DEFAULT_MODEL = "claude-sonnet-5"
+
+EXTRACT_PROMPT = """You are given screenshot(s) of an Indian index chart and/or an option chain.
+Extract ONLY what is clearly visible. If a value is not visible or you are unsure, use null.
+NEVER guess or invent numbers. Copy numbers exactly as displayed (no commas, do not convert units).
+
+Return ONLY one JSON object, no other text, with this schema:
+{
+  "index": string|null,
+  "spot": number|null,
+  "timeframe": string|null,
+  "trend": "up"|"down"|"sideways"|null,
+  "vwap": number|null,
+  "price_support_levels": [numbers visible on chart as support/swing lows],
+  "price_resistance_levels": [numbers visible on chart as resistance/swing highs],
+  "total_ce_oi": number|null,
+  "total_pe_oi": number|null,
+  "chain": [
+    {"strike": number, "ce_oi": number|null, "ce_oi_chg": number|null,
+     "pe_oi": number|null, "pe_oi_chg": number|null}
+  ],
+  "notes": string
+}
+"trend" must be judged from the visible candles only."""
+
+REPORT_SYSTEM = (
+    "तू 'ELIP PRO' नावाचा Nifty option चे विश्लेषण करणारा सहाय्यक आहेस. फक्त मराठीत लिही. "
+    "दिलेल्या JSON मधील आकडेच वापर; स्वतःचे नवीन आकडे, स्तर किंवा अंदाज शोधू नकोस. "
+    "जिथे मूल्य null आहे तिथे 'डेटा उपलब्ध नाही' लिही. 'signal' चे मूल्य बदलू नकोस, फक्त त्याचे कारण समजाव. "
+    "नफ्याची हमी देऊ नकोस. उत्तर संक्षिप्त ठेव."
+)
+
+
+# ---------------------------------------------------------------
+# मदतीचे फंक्शन्स
+# ---------------------------------------------------------------
+def get_secret_key():
+    try:
+        return st.secrets.get("ANTHROPIC_API_KEY", "")
+    except Exception:
+        return ""
+
+
+def nz(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def prep_image(f):
+    img = Image.open(f).convert("RGB")
+    img.thumbnail((2400, 2400))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=88)
+    data = base64.b64encode(buf.getvalue()).decode()
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": "image/jpeg", "data": data},
+    }
+
+
+def ask_claude(client, model, content, system, max_tokens):
+    r = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": content}],
+    )
+    return "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
+
+
+def parse_json(text):
+    text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError("JSON सापडला नाही")
+    return json.loads(text[start : end + 1])
+
+
+# ---------------------------------------------------------------
+# आकडेमोड (कोडमध्ये - AI कडून नाही)
+# ---------------------------------------------------------------
+def analyze(spot, trend, vwap, tot_ce, tot_pe, chain_df, chart_sup, chart_res):
+    df = chain_df.copy()
+    for c in COLS:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(subset=["strike"]).sort_values("strike").reset_index(drop=True)
+
+    ce = df["ce_oi"].fillna(0)
+    pe = df["pe_oi"].fillna(0)
+
+    if tot_ce and tot_pe:
+        pcr, pcr_src = round(tot_pe / tot_ce, 2), "Total OI"
+    elif ce.sum() > 0:
+        pcr, pcr_src = round(pe.sum() / ce.sum(), 2), "दिसणारे स्ट्राइक्स"
     else:
-        with st.spinner(f"कोटक निओ सर्व्हरशी कनेक्ट होत आहे ({selected_index})..."):
-            st.success(f"{selected_index} लाईव्ह डेटा कोटक निओ एपीआय सोबत यशस्वीरीत्या सिंक झाला!")
+        pcr, pcr_src = None, "डेटा नाही"
+
+    max_pain = None
+    if len(df) >= 5 and (ce.sum() + pe.sum()) > 0:
+        k = df["strike"].values
+        pain = [
+            (ce.values * np.clip(s - k, 0, None)).sum()
+            + (pe.values * np.clip(k - s, 0, None)).sum()
+            for s in k
+        ]
+        max_pain = float(k[int(np.argmin(pain))])
+
+    supports = df.dropna(subset=["pe_oi"]).nlargest(3, "pe_oi")["strike"].tolist()
+    resists = df.dropna(subset=["ce_oi"]).nlargest(3, "ce_oi")["strike"].tolist()
+    below = [s for s in supports if s < spot]
+    above = [r for r in resists if r > spot]
+    nsup = max(below) if below else None
+    nres = min(above) if above else None
+
+    has_chg = df["ce_oi_chg"].notna().any() and df["pe_oi_chg"].notna().any()
+    ce_chg = float(df["ce_oi_chg"].sum()) if has_chg else None
+    pe_chg = float(df["pe_oi_chg"].sum()) if has_chg else None
+
+    bull, bear = [], []
+    # 1) ट्रेंड
+    if trend == "up":
+        bull.append("चार्ट ट्रेंड वर")
+    if trend == "down":
+        bear.append("चार्ट ट्रेंड खाली")
+    # 2) VWAP
+    if vwap:
+        if spot > vwap:
+            bull.append("किंमत VWAP च्या वर")
+        elif spot < vwap:
+            bear.append("किंमत VWAP च्या खाली")
+    # 3) PCR
+    if pcr is not None:
+        if pcr >= 1.1:
+            bull.append(f"PCR {pcr} (बुलिश)")
+        elif pcr <= 0.9:
+            bear.append(f"PCR {pcr} (बेअरिश)")
+    # 4) OI बदल
+    if has_chg:
+        if pe_chg > ce_chg:
+            bull.append("Put OI वाढ > Call OI वाढ")
+        elif ce_chg > pe_chg:
+            bear.append("Call OI वाढ > Put OI वाढ")
+    # 5) मार्गात wall नाही (किमान 0.25% जागा)
+    if spot > 0:
+        if nres is None or (nres - spot) / spot * 100 >= 0.25:
+            bull.append("वर रेझिस्टन्स wall जवळ नाही")
+        if nsup is None or (spot - nsup) / spot * 100 >= 0.25:
+            bear.append("खाली सपोर्ट wall जवळ नाही")
+
+    signal, note, rr = "WAIT", "किमान 4/5 अटी जुळल्या नाहीत.", None
+    if len(bull) >= 4 and len(bull) > len(bear):
+        signal = "BUY CE"
+    elif len(bear) >= 4 and len(bear) > len(bull):
+        signal = "BUY PE"
+
+    if signal != "WAIT" and nsup and nres:
+        risk = (spot - nsup) if signal == "BUY CE" else (nres - spot)
+        reward = (nres - spot) if signal == "BUY CE" else (spot - nsup)
+        if risk > 0:
+            rr = round(reward / risk, 2)
+            if rr < 1.5:
+                signal, note = "WAIT", f"Risk:Reward कमी ({rr}) - ट्रेड टाळा."
+    if signal != "WAIT":
+        note = "अटी जुळल्या; SL आणि पोझिशन साइज पाळा."
+
+    return {
+        "time": datetime.now().strftime("%d-%b %H:%M"),
+        "spot": spot,
+        "trend": trend,
+        "vwap": vwap or None,
+        "pcr": pcr,
+        "pcr_source": pcr_src,
+        "max_pain": max_pain,
+        "oi_support_strikes": supports,
+        "oi_resistance_strikes": resists,
+        "chart_supports": chart_sup,
+        "chart_resistances": chart_res,
+        "nearest_support": nsup,
+        "nearest_resistance": nres,
+        "ce_oi_change_total": ce_chg,
+        "pe_oi_change_total": pe_chg,
+        "bull_score": len(bull),
+        "bear_score": len(bear),
+        "bull_reasons": bull,
+        "bear_reasons": bear,
+        "risk_reward": rr,
+        "signal": signal,
+        "signal_note": note,
+        "_df": df,
+    }
+
+
+def whatsapp_text(r):
+    def fmt(v):
+        return ", ".join(str(int(x)) for x in v) if v else "-"
+
+    icon = {"BUY CE": "🟢", "BUY PE": "🔴", "WAIT": "🟡"}[r["signal"]]
+    return (
+        f"📊 *NIFTY QUICK UPDATE* 📊\n"
+        f"🗓 {r['time']} | Spot: {r['spot']:.0f}\n\n"
+        f"🟢 *Support:* {fmt(r['oi_support_strikes'])}\n"
+        f"🔴 *Resistance:* {fmt(r['oi_resistance_strikes'])}\n"
+        f"📉 PCR: {r['pcr'] if r['pcr'] is not None else '-'} | "
+        f"Max Pain: {int(r['max_pain']) if r['max_pain'] else '-'}\n"
+        f"📈 Trend: {r['trend'] or '-'}\n"
+        f"{icon} *Status:* {r['signal']}\n"
+        f"💡 {r['signal_note']}\n\n"
+        f"⚠️ शैक्षणिक विश्लेषण, गुंतवणूक सल्ला नाही."
+    )
+
+
+def render_result(r):
+    css = {"BUY CE": "sig-ce", "BUY PE": "sig-pe", "WAIT": "sig-wait"}[r["signal"]]
+    icon = {"BUY CE": "🟢", "BUY PE": "🔴", "WAIT": "🟡"}[r["signal"]]
+    reasons = r["bull_reasons"] if r["bull_score"] >= r["bear_score"] else r["bear_reasons"]
+    lvl = ""
+    if r["nearest_support"] or r["nearest_resistance"]:
+        lvl = (
+            f"<br>जवळचा सपोर्ट: <b>{r['nearest_support'] or '-'}</b> | "
+            f"जवळचा रेझिस्टन्स: <b>{r['nearest_resistance'] or '-'}</b>"
+        )
+    st.markdown(
+        f"""<div class="trade-plan-box {css}">
+        <div class="sig-title">{icon} STATUS: {r['signal']}</div>
+        {r['signal_note']}<br>
+        स्कोअर - Bull: <b>{r['bull_score']}/5</b> | Bear: <b>{r['bear_score']}/5</b>
+        {lvl}<br>
+        <small>{' • '.join(reasons) if reasons else ''}</small>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Spot", f"{r['spot']:.0f}")
+    m2.metric("PCR", r["pcr"] if r["pcr"] is not None else "-", help=f"स्रोत: {r['pcr_source']}")
+    m3.metric("Max Pain", int(r["max_pain"]) if r["max_pain"] else "-")
+
+    s1, s2 = st.columns(2)
+    s1.success("🟢 OI Support (Put OI): " + (", ".join(str(int(x)) for x in r["oi_support_strikes"]) or "-"))
+    s2.error("🔴 OI Resistance (Call OI): " + (", ".join(str(int(x)) for x in r["oi_resistance_strikes"]) or "-"))
+
+    df = r["_df"]
+    if len(df) > 0:
+        fig = go.Figure()
+        fig.add_bar(x=df["strike"], y=df["pe_oi"], name="Put OI", marker_color="#2ea043")
+        fig.add_bar(x=df["strike"], y=df["ce_oi"], name="Call OI", marker_color="#f85149")
+        fig.update_layout(
+            barmode="group",
+            template="plotly_dark",
+            height=340,
+            margin=dict(l=10, r=10, t=30, b=10),
+            title="Strike-wise OI",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+# ---------------------------------------------------------------
+# सत्र स्थिती
+# ---------------------------------------------------------------
+for k, v in {"ext": None, "ext_id": 0, "result": None, "report": None, "history": []}.items():
+    st.session_state.setdefault(k, v)
+
+# ---------------------------------------------------------------
+# साइडबार
+# ---------------------------------------------------------------
+with st.sidebar:
+    st.header("⚙️ सेटिंग्ज")
+    secret_key = get_secret_key()
+    if secret_key:
+        st.success("API Key: Secrets मधून मिळाली ✅")
+        api_key = secret_key
+    else:
+        api_key = st.text_input("Anthropic API Key", type="password", help="sk-ant-...")
+    model = st.text_input("Model", value=DEFAULT_MODEL)
+    st.caption("Key GitHub वर कोडमध्ये कधीही टाकू नका. Streamlit Secrets वापरा.")
+
+# ---------------------------------------------------------------
+# मुख्य स्क्रीन
+# ---------------------------------------------------------------
+st.title("📈 Naksh Pro 2.0")
+st.caption("Nifty Option Chain विश्लेषण | आकडेमोड कोडमध्ये, स्पष्टीकरण Claude कडून")
+
+files = st.file_uploader(
+    "चार्ट / Option Chain स्क्रीनशॉट अपलोड करा (एक किंवा अनेक)",
+    type=["png", "jpg", "jpeg", "webp"],
+    accept_multiple_files=True,
+)
+
+b1, b2 = st.columns(2)
+if b1.button("📥 स्क्रीनशॉटमधून डेटा वाचा", type="primary", use_container_width=True):
+    if not files:
+        st.warning("आधी स्क्रीनशॉट अपलोड करा.")
+    elif not api_key:
+        st.warning("साइडबारमध्ये API Key टाका.")
+    else:
+        with st.spinner("Claude स्क्रीनशॉट वाचत आहे..."):
+            try:
+                client = anthropic.Anthropic(api_key=api_key)
+                content = [prep_image(f) for f in files] + [{"type": "text", "text": EXTRACT_PROMPT}]
+                txt = ask_claude(
+                    client, model, content,
+                    "You are a precise data extraction tool. Output JSON only.", 3000,
+                )
+                st.session_state.ext = parse_json(txt)
+                st.session_state.ext_id += 1
+                st.session_state.result = None
+                st.session_state.report = None
+            except Exception as e:
+                st.error(f"डेटा वाचता आला नाही: {e}")
+
+if b2.button("✍️ मॅन्युअल एंट्री", use_container_width=True):
+    st.session_state.ext = {}
+    st.session_state.ext_id += 1
+    st.session_state.result = None
+    st.session_state.report = None
+
+ex = st.session_state.ext
+if ex is not None:
+    eid = st.session_state.ext_id
+    st.subheader("✏️ डेटा तपासा / दुरुस्त करा")
+    st.caption("AI कडून वाचताना आकडे चुकू शकतात. विश्लेषणापूर्वी खालील आकडे स्क्रीनशॉटशी जुळवा.")
+
+    a, b, c, d = st.columns(4)
+    spot = a.number_input("Spot", value=nz(ex.get("spot")), step=1.0, key=f"spot{eid}")
+    trend_opts = ["up", "down", "sideways", "unknown"]
+    tr0 = ex.get("trend") if ex.get("trend") in trend_opts else "unknown"
+    trend = b.selectbox("Trend", trend_opts, index=trend_opts.index(tr0), key=f"tr{eid}")
+    vwap = c.number_input("VWAP (0 = माहीत नाही)", value=nz(ex.get("vwap")), step=1.0, key=f"vw{eid}")
+    d.caption(f"Timeframe: {ex.get('timeframe') or '-'}")
+
+    e, f = st.columns(2)
+    tot_ce = e.number_input("Total CE OI (0 = माहीत नाही)", value=nz(ex.get("total_ce_oi")), key=f"tce{eid}")
+    tot_pe = f.number_input("Total PE OI (0 = माहीत नाही)", value=nz(ex.get("total_pe_oi")), key=f"tpe{eid}")
+
+    rows = ex.get("chain") or []
+    df0 = pd.DataFrame(rows).reindex(columns=COLS) if rows else pd.DataFrame(columns=COLS)
+    for col in COLS:
+        df0[col] = pd.to_numeric(df0[col], errors="coerce")
+    chain_df = st.data_editor(df0, num_rows="dynamic", use_container_width=True, key=f"chain{eid}")
+
+    if ex.get("price_support_levels") or ex.get("price_resistance_levels"):
+        st.caption(
+            f"चार्टवरील सपोर्ट: {ex.get('price_support_levels')} | "
+            f"रेझिस्टन्स: {ex.get('price_resistance_levels')}"
+        )
+    if ex.get("notes"):
+        st.caption(f"Claude ची नोंद: {ex.get('notes')}")
+
+    if st.button("📊 विश्लेषण करा", type="primary", use_container_width=True):
+        if spot <= 0:
+            st.warning("Spot किंमत टाका.")
+        else:
+            res = analyze(
+                spot, trend, vwap or None, tot_ce or None, tot_pe or None, chain_df,
+                ex.get("price_support_levels") or [], ex.get("price_resistance_levels") or [],
+            )
+            prev = st.session_state.history[-1] if st.session_state.history else None
+            st.session_state.result = res
+            st.session_state.report = None
+            clean = {k: v for k, v in res.items() if k != "_df"}
+            st.session_state.history.append(clean)
+            st.session_state.history = st.session_state.history[-5:]
+
+            if api_key:
+                with st.spinner("Claude विश्लेषण लिहित आहे..."):
+                    try:
+                        client = anthropic.Anthropic(api_key=api_key)
+                        prompt = (
+                            "खालील गणिती निकालांच्या आधारे मराठीत या विभागांत लिही:\n"
+                            "### OI विश्लेषण (CE/PE)\n### मार्केट ट्रेंड\n"
+                            "### आधीची vs सध्याची तुलना (previous null असेल तर 'तुलनेसाठी आधीचा डेटा नाही' लिही)\n"
+                            "### ट्रेड कधी करावा (CE खरेदी / PE खरेदी अटी, फक्त दिलेले स्तर वापरून)\n"
+                            "### जोखीम\nप्रत्येक विभाग 3-4 ओळींत.\n\n"
+                            f"current = {json.dumps(clean, ensure_ascii=False)}\n"
+                            f"previous = {json.dumps(prev, ensure_ascii=False)}"
+                        )
+                        st.session_state.report = ask_claude(
+                            client, model, [{"type": "text", "text": prompt}], REPORT_SYSTEM, 2500
+                        )
+                    except Exception as e:
+                        st.error(f"स्पष्टीकरण मिळाले नाही: {e}")
+
+res = st.session_state.result
+if res:
+    st.divider()
+    render_result(res)
+    if st.session_state.report:
+        st.markdown("### 🧠 Claude चे स्पष्टीकरण")
+        st.markdown(st.session_state.report)
+
+    st.markdown("### 📤 WhatsApp Summary")
+    wa = whatsapp_text(res)
+    st.code(wa, language="text")
+    st.link_button("WhatsApp वर पाठवा", "https://wa.me/?text=" + urllib.parse.quote(wa))
+
+st.divider()
+st.caption(
+    "⚠️ हे शैक्षणिक विश्लेषण आहे, गुंतवणूक सल्ला नाही. Option trading मध्ये मोठा तोटा होऊ शकतो. "
+    "नेहमी Stop-loss वापरा आणि जोखीम मर्यादित ठेवा."
+)
