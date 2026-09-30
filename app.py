@@ -1,12 +1,9 @@
-import base64
 import datetime
 import json
-import os
 import sqlite3
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from google import genai
 from google.genai import types
-from pydantic import BaseModel
 
 app = FastAPI(title="Naksh Pro 2.0 Market Intelligence")
 
@@ -36,9 +33,7 @@ def init_db():
 
 init_db()
 
-
 # ----------------- GEMINI API CONFIGURATION -----------------
-# तुमच्या प्रणालीमधील GEMINI_API_KEY एनव्हायरमेंट व्हेरिएबलमधून घेतली जाईल
 client = genai.Client()
 
 
@@ -76,9 +71,9 @@ async def analyze_pro(
     )
 
   try:
-    # लेटस्ट Gemini मॉडेल वापरत आहोत (एरर येणार नाही)
+    # येथे लेटेस्ट आणि अपडेटेड मॉडेल वापरले आहे (एरर येणार नाही)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json"
