@@ -71,7 +71,7 @@ async def analyze_pro(
     )
 
   try:
-    # येथे लेटेस्ट आणि अपडेटेड मॉडेल वापरले आहे (एरर येणार नाही)
+    # येथे मॉडेलचे नाव 'gemini-3.8-flash' केले आहे जेणेकरून 404 एरर येणार नाही
     response = client.models.generate_content(
         model="gemini-3.8-flash",
         contents=contents,
@@ -80,7 +80,14 @@ async def analyze_pro(
         ),
     )
 
-    analysis_data = json.loads(response.text)
+    # रेस्पोन्स क्लीन करणे (कधीकधी markdown blocks असल्यास काढण्यासाठी)
+    raw_text = response.text.strip()
+    if raw_text.startswith("```json"):
+      raw_text = raw_text[7:]
+    if raw_text.endswith("```"):
+      raw_text = raw_text[:-3]
+
+    analysis_data = json.loads(raw_text.strip())
 
     # ----------------- DATABASE SAVE -----------------
     conn = sqlite3.connect(DB_FILE)
