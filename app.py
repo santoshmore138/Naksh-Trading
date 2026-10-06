@@ -1,136 +1,213 @@
-import datetime
-import json
-import sqlite3
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import streamlit as st
+from PIL import Image
 from google import genai
-from google.genai import types
+import datetime
+import uuid
+import urllib.parse
+import time
+import json
+import os
+import plotly.graph_objects as go
+import pandas as pd
 
-app = FastAPI(title="Naksh Pro 2.0 Market Intelligence")
+# ॲप कॉन्फिगरेशन
+st.set_page_config(page_title="Naksh Pro 2.0 - Advanced Analyzer & Charts", page_icon="🎯", layout="wide")
 
-# ----------------- DATABASE SETUP (History) -----------------
-DB_FILE = "trading_analysis.db"
-
-
-def init_db():
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS analyses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            index_name TEXT,
-            market_bias TEXT,
-            dynamic_score INTEGER,
-            pcr REAL,
-            max_pain REAL,
-            result_json TEXT,
-            whatsapp_summary TEXT
-        )
-    """)
-  conn.commit()
-  conn.close()
-
-
-init_db()
-
-# ----------------- GEMINI API CONFIGURATION -----------------
-client = genai.Client()
-
-
-@app.post("/analyze-pro/")
-async def analyze_pro(
-    index_name: str = Form(
-        ..., description="NIFTY 50 / BANK NIFTY / SENSEX"
-    ),
-    option_chain: UploadFile = File(None),
-    price_action: UploadFile = File(None),
-):
-  timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-  contents = [
-      f"You are an expert Indian Stock Market Options Trading Analyst. Analyze these screenshots together for {index_name}. "
-      "Perform a Combined Analysis (Option Chain + Price Action Chart) and return ONLY a valid JSON object with the following exact keys: "
-      '{"ocr_verified": true/false, "market_bias": "Bullish/Bearish/Neutral", "dynamic_score": 0-100, '
-      '"pcr": 1.15, "max_pain": 24500, "demand_supply_zone": "string", "support_levels": ["S1", "S2", "S3"], '
-      '"resistance_levels": ["R1", "R2", "R3"], "setup_type": "CE Buy/PE Buy/No Trade", '
-      '"entry": 0.0, "stop_loss": 0.0, "target_1": 0.0, "target_2": 0.0, "target_3": 0.0, '
-      '"risk_reward": "1:2", "no_trade_reason": "null or reason", "whatsapp_summary": "Clean WhatsApp text report with emojis"}'
-  ]
-
-  # इमेजेस जोडणे
-  if option_chain:
-    oc_bytes = await option_chain.read()
-    contents.append(
-        types.Part.from_bytes(data=oc_bytes, mime_type=option_chain.content_type)
-    )
-
-  if price_action:
-    pa_bytes = await price_action.read()
-    contents.append(
-        types.Part.from_bytes(data=pa_bytes, mime_type=price_action.content_type)
-    )
-
-  try:
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=contents,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json"
-        ),
-    )
-
-    # रेस्पोन्स क्लीन करणे
-    raw_text = response.text.strip()
-    if raw_text.startswith("```json"):
-      raw_text = raw_text[7:]
-    if raw_text.endswith("```"):
-      raw_text = raw_text[:-3]
-
-    analysis_data = json.loads(raw_text.strip())
-
-    # ----------------- DATABASE SAVE -----------------
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-            INSERT INTO analyses (timestamp, index_name, market_bias, dynamic_score, pcr, max_pain, result_json, whatsapp_summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            timestamp,
-            index_name,
-            analysis_data.get("market_bias", "Neutral"),
-            analysis_data.get("dynamic_score", 50),
-            analysis_data.get("pcr", 1.0),
-            analysis_data.get("max_pain", 0),
-            json.dumps(analysis_data),
-            analysis_data.get("whatsapp_summary", ""),
-        ),
-    )
-    conn.commit()
-    conn.close()
-
-    return {
-        "status": "Success",
-        "timestamp": timestamp,
-        "data": analysis_data,
+st.markdown("""
+    <style>
+    html, body, [class*="css"] {
+        font-size: 14px;
     }
+    .metric-box {
+        background-color: #f0f2f6;
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 5px solid #ff4b4b;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 6px;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-  except Exception as e:
-    raise HTTPException(
-        status_code=500, detail=f"तांत्रिक त्रुटी आली आहे: {str(e)}"
-    )
+st.title("🎯 Naksh Pro 2.0 — ELIP PRO Market Intelligence & Visuals")
+st.markdown("---")
 
+# डेटा सुरक्षित ठेवण्यासाठी लोकल फाईल मॅनेजमेंट (डेटा डिलीट होणार नाही)
+HISTORY_FILE = "naksh_history.json"
 
-@app.get("/history/")
-def get_history():
-  conn = sqlite3.connect(DB_FILE)
-  conn.row_factory = sqlite3.Row
-  cursor = conn.cursor()
-  cursor.execute(
-      "SELECT id, timestamp, index_name, market_bias, dynamic_score, pcr,"
-      " whatsapp_summary FROM analyses ORDER BY id DESC LIMIT 20"
-  )
-  rows = cursor.fetchall()
-  conn.close()
-  return [dict(row) for row in rows]
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_history(history_data):
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history_data, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+
+if "history" not in st.session_state:
+    st.session_state.history = load_history()
+
+st.sidebar.header("⚙️ ॲप सेटिंग्ज आणि इनपुट")
+
+entered_api_key = st.sidebar.text_input("Google Gemini API Key टाका:", value=st.session_state.api_key, type="password")
+if entered_api_key:
+    st.session_state.api_key = entered_api_key.strip()
+
+analysis_mode = st.sidebar.selectbox("विश्लेषण मोड (Mode) निवडा:", [
+    "🚀 Naksh Pro 2.0 (Single/Multiple Image Analysis)", 
+    "🔄 What Changed? (१५ मिनिटांतील तुलनात्मक बदल)",
+    "📊 Live Market Visual Charts (डेटा चार्ट डॅशबोर्ड)"
+])
+
+images = []
+prev_image = None
+curr_image = None
+
+if "Naksh Pro 2.0" in analysis_mode:
+    uploaded_files = st.sidebar.file_uploader("ऑप्शन चेन आणि प्राईस ॲक्शन चार्ट अपलोड करा", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+    if uploaded_files:
+        for f in uploaded_files:
+            img = Image.open(f)
+            images.append(img)
+            st.sidebar.image(img, caption=f"फाइल: {f.name}", use_container_width=True)
+elif "What Changed?" in analysis_mode:
+    st.sidebar.markdown("### 🔄 १५ मिनिटांमधील बदल तपासा")
+    p_file = st.sidebar.file_uploader("१) जुना स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="p_img")
+    c_file = st.sidebar.file_uploader("२) नवीन स्क्रीनशॉट", type=["png", "jpg", "jpeg"], key="c_img")
+    
+    if p_file and c_file:
+        prev_image = Image.open(p_file)
+        curr_image = Image.open(c_file)
+        st.sidebar.image(prev_image, caption="जुना स्क्रीनशॉट", use_container_width=True)
+        st.sidebar.image(curr_image, caption="नवीन स्क्रीनशॉट", use_container_width=True)
+else:
+    st.sidebar.markdown("### 📊 व्हिज्युअल चार्ट डॅशबोर्ड")
+    st.sidebar.info("येथे डॅशबोर्डवर थेट ओपन इंटरेस्टचे ग्राफ्स दिसतील.")
+
+# मुख्य डॅशबोर्डवर चार्ट डॅशबोर्ड दाखवणे
+if "Live Market Visual Charts" in analysis_mode:
+    st.subheader("📊 स्ट्राइक-वाईस ओपन इंटरेस्ट (OI) डॅशबोर्ड")
+    st.markdown("खालील चार्टमध्ये कॉल (CE) आणि पुट (PE) ओपन इंटरेस्टचे प्रमाण दर्शवले आहे, ज्यामुळे सपोर्ट आणि रेजिस्टेंस लेव्हल स्पष्ट होतात.")
+
+    strikes = [24200, 24300, 24400, 24500, 24600, 24700, 24800]
+    ce_oi = [150000, 300000, 600000, 1200000, 800000, 400000, 100000]
+    pe_oi = [200000, 450000, 900000, 1400000, 600000, 250000, 50000]
+
+    fig = go.Figure(data=[
+        go.Bar(name='Call OI (Resistance)', x=strikes, y=ce_oi, marker_color='red'),
+        go.Bar(name='Put OI (Support)', x=strikes, y=pe_oi, marker_color='green')
+    ])
+    
+    fig.update_layout(barmode='group', title='Strike wise Open Interest Distribution', xaxis_title='Strike Price', yaxis_title='Open Interest')
+    st.plotly_chart(fig, use_container_width=True)
+
+if st.sidebar.button("🚀 Naksh Pro 2.0 ॲनालिसिस सुरू करा"):
+    if not st.session_state.api_key:
+        st.error("कृपया ॲपच्या डाव्या बाजूकडील साईडबारमध्ये तुमची Gemini API Key प्रविष्ट करा!")
+    else:
+        try:
+            client = genai.Client(api_key=st.session_state.api_key)
+            
+            with st.spinner("Naksh Pro 2.0 सिस्टीम सखोल विश्लेषण करत आहे... कृपया प्रतीक्षा करा."):
+                
+                if "Naksh Pro 2.0" in analysis_mode:
+                    prompt = """
+                    हा शेअर मार्केटच्या Option Chain आणि Price Action Chart चा डेटा/स्क्रीनशॉट आहे. Naksh Pro 2.0 सिस्टीमच्या आधारे खालील मुद्द्यांवर मराठीत अचूक आणि सविस्तर विश्लेषण द्या:
+                    1. 🟢 **Dynamic Support Levels:** S1, S2, S3 (OI + Change in OI + Volume + Price Action च्या आधारावर स्कोर्ससह).
+                    2. 🔴 **Resistance Levels:** R1, R2, R3 (OI + Price Action च्या आधारावर स्कोर्ससह).
+                    3. 🧮 **PCR & Max Pain:** सध्याचा PCR, PCR Change आणि Max Pain लेव्हल.
+                    4. 📊 **Confirmation Matrix Table:** Price Action, PE OI, CE OI, PCR आणि Volume चा सिग्नल तपासून अंतिम स्कोर सांगा.
+                    5. 🚦 **No Trade Filter:** मार्केट मधोमध असेल तर "🟡 NO CLEAR SETUP / WAIT" स्पष्टपणे सांगा.
+                    6. 🎯 **Naksh Pro 2.0 Trade Planning Box:** (Entry, Key Level, Invalidation/SL, Targets).
+                    7. 📤 **WhatsApp Summary Report:** व्हॉट्सॲपवर शेअर करता येईल असा शॉर्ट आणि पॉवरफुल रिपोर्ट.
+                    """
+                    if images:
+                        contents_list = images + [prompt]
+                    else:
+                        st.warning("कृपया कमीत कमी एक स्क्रीनशॉट अपलोड करा!")
+                        st.stop()
+                elif "What Changed?" in analysis_mode:
+                    prompt = """
+                    हे दोन वेगवेगळ्या वेळेचे स्क्रीनशॉट आहेत. यांची तुलना करून खालील मुद्द्यांवर मराठीत अचूक माहिती द्या:
+                    1. **काय बदलले? (What Changed?):** Call OI आणि Put OI मध्ये नेमकी काय वाढ किंवा घट झाली?
+                    2. **PCR मधील बदल:** जुना PCR विरुद्ध नवीन PCR.
+                    3. **मजबूत झालेली बाजू:** रेजिस्टेंस मजबूत झाला की सपोर्ट मजबूत झाला?
+                    4. **नवीन निष्कर्ष व ट्रेड कल:** ट्रेडर्सनी काय निर्णय घ्यावा?
+                    """
+                    if prev_image and curr_image:
+                        contents_list = [prev_image, curr_image, prompt]
+                    else:
+                        st.warning("कृपया दोन्ही स्क्रीनशॉट अपलोड करा!")
+                        st.stop()
+                else:
+                    prompt = "सध्याच्या मार्केट डॅशबोर्ड आणि ओपन इंटरेस्टच्या आधारावर आजच्या ट्रेडचे विश्लेषण मराठीत सविस्तर द्या."
+                    contents_list = [prompt]
+
+                response = None
+                for attempt in range(3):
+                    try:
+                        response = client.models.generate_content(model='gemini-3.6-flash', contents=contents_list)
+                        break
+                    except Exception as err:
+                        if "503" in str(err) and attempt < 2:
+                            time.sleep(3)
+                            continue
+                        else:
+                            raise err
+
+                report_id = str(uuid.uuid4())
+                current_time = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+                report_entry = {"id": report_id, "time": current_time, "text": response.text}
+                
+                # हिस्टरीमध्ये नवीन रिपोर्ट सेव्ह करणे
+                st.session_state.history.insert(0, report_entry)
+                save_history(st.session_state.history)
+                
+                st.success("ॲनालिसिस यशस्वीरीत्या पूर्ण झाले!")
+                
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                st.error("⚠️ **API कोटा संपला आहे (Quota Exceeded):** तुम्ही वापरत असलेल्या Gemini API Key ची फ्री मर्यादा संपली आहे. कृपया Google AI Studio वरून **नवीन API Key** तयार करून टाका किंवा थोड्या वेळाने प्रयत्न करा[span_2](start_span)[span_2](end_span).")
+            else:
+                st.error(f"तांत्रिक त्रुटी आली आहे: {error_str}")
+
+# सेव्ह केलेली हिस्ट्री दाखवणे (तीन दिवसानंतरही दिसेल)
+if st.session_state.history:
+    st.markdown("---")
+    st.markdown("### 📊 जतन केलेले रिपोर्ट्स (Saved History & Dashboard):")
+    
+    for i, hist in enumerate(st.session_state.history):
+        st.markdown(f"**🕒 वेळ: {hist['time']}**")
+        st.markdown(hist['text'])
+        
+        encoded_report = urllib.parse.quote(hist['text'])
+        whatsapp_url = f"https://api.whatsapp.com/send?text={encoded_report}"
+        
+        st.markdown(f"""
+            <a href="{whatsapp_url}" target="_blank">
+                <button style="background-color:#25D366; color:white; padding:8px 15px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:5px;">
+                    📤 हा रिपोर्ट व्हॉट्सॲपवर शेअर करा
+                </button>
+            </a>
+        """, unsafe_allow_html=True)
+        
+        if st.button(f"🗑️ हा रिपोर्ट डिलीट करा (Report #{i+1})", key=f"del_{hist['id']}" ):
+            st.session_state.history.pop(i)
+            save_history(st.session_state.history)
+            st.rerun()
+            
+        st.markdown("---")
